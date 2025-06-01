@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>穴埋めつくる君</title>
+    <style>
+        /* 基本スタイル */
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 30px 15px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 800px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .hidden { display: none; }
+        h1, h2, h3 { color: #005a9c; margin-top: 0; }
+        h2 { border-bottom: 2px solid #005a9c; padding-bottom: 5px; margin-bottom: 25px; }
+        p { color: #555; line-height: 1.6; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+            margin: 5px;
+        }
+        button:hover:not(:disabled) { background-color: #0056b3; }
+        button:active:not(:disabled) { transform: translateY(1px); }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        .btn-danger { background-color: #dc3545; }
+        .btn-danger:hover { background-color: #c82333; }
+        .btn-success { background-color: #28a745; }
+        .btn-success:hover { background-color: #218838; }
+        .btn-secondary { background-color: #6c757d; }
+        .btn-secondary:hover { background-color: #5a6268; }
+
+        /* --- 画面1: 問題リスト --- */
+        #set-list { list-style: none; padding: 0; margin-top: 20px; }
+        #set-list li {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        #set-list .set-name { font-size: 18px; font-weight: bold; margin-right: auto; text-align: left; }
+
+        /* --- 画面2: 編集画面 --- */
+        #editor-screen textarea {
+            width: 100%; height: 250px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;
+            font-size: 16px; line-height: 1.5; resize: vertical; box-sizing: border-box; margin-top: 10px;
+        }
+        .editor-info { background-color: #e9f5ff; border: 1px solid #b3d7ff; border-radius: 5px; padding: 15px; text-align: left; margin-bottom: 20px; }
+        .setting-box { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: #f8f9fa; text-align: left; }
+        .setting-item { display: flex; align-items: center; margin-bottom: 15px; flex-wrap: wrap; }
+        .setting-item label { font-weight: bold; width: 120px; }
+        .setting-item input[type="number"] { width: 80px; padding: 5px; font-size: 16px; text-align: center; border: 1px solid #ccc; border-radius: 4px; }
+        .checkbox-group label { margin-right: 15px; font-weight: normal; cursor: pointer; }
+        .checkbox-group input { margin-right: 5px; }
+        .feedback-message { color: #28a745; font-weight: bold; min-height: 1.5em; transition: opacity 0.5s; }
+
+        /* --- 画面3: クイズ画面 --- */
+        #quiz-area { min-height: 200px; padding: 10px 0; }
+        #question-list { list-style-type: none; padding: 0; text-align: left; }
+        #question-list li {
+            font-size: 20px; font-weight: bold; line-height: 1.8; padding: 15px; border-bottom: 1px solid #eee;
+            display: flex; align-items: center;
+        }
+        #question-list li:last-child { border-bottom: none; }
+        #question-list .check-sentence-cb { width: 20px; height: 20px; margin-right: 15px; cursor: pointer; flex-shrink: 0; }
+        .secret { background-color: #555; color: #555; border-radius: 4px; padding: 0 5px; cursor: pointer; transition: all 0.2s; user-select: none; }
+        .secret.revealed { background-color: #fff3cd; color: #e44d26; }
+        .navigation-buttons { margin-top: 20px; display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+        
+        /* --- 画面4: チェック済みリスト --- */
+        #checked-list-ul { text-align: left; font-size: 18px; line-height: 1.7; }
+    </style>
+</head>
+<body>
+
+<div id="list-screen" class="container">
+    <h1>穴埋めつくる君</h1>
+    <p>挑戦するクイズを選ぶか、新しいクイズを作成してください。</p>
+    <ul id="set-list"></ul>
+    <button id="new-set-btn" class="btn-success">＋ 新しいクイズを作成</button>
+</div>
+
+<div id="editor-screen" class="container hidden">
+    <h2 id="editor-title"></h2>
+    <p id="editor-feedback" class="feedback-message"></p>
+    <div class="editor-info">
+        <p><b>【使い方】</b></p>
+        <p>1. クイズにしたい文章を1行に1つずつ入力してください。</p>
+        <p>2. 下の「クイズ設定」で、隠したい文字の種類や確率を調整します。</p>
+        <p>3. 編集内容は「リストを保存」ボタンでいつでも保存できます。</p>
+    </div>
+    <textarea id="editor-textarea"></textarea>
+    
+    <div class="setting-box">
+        <h3>クイズ設定</h3>
+        <div class="setting-item">
+            <label for="masking-rate-input">マスキング率:</label>
+            <input type="number" id="masking-rate-input" min="0" max="100" value="60"> %
+        </div>
+        <div class="setting-item">
+            <label>マスキング対象:</label>
+            <div class="checkbox-group">
+                <label><input type="checkbox" class="mask-target" value="kanji" checked> 漢字</label>
+                <label><input type="checkbox" class="mask-target" value="katakana" checked> カタカナ</label>
+                <label><input type="checkbox" class="mask-target" value="alphabet" checked> アルファベット</label>
+                <label><input type="checkbox" class="mask-target" value="number" checked> 数字</label>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <button id="back-to-list-btn-1">リストに戻る</button>
+        <button id="save-list-btn" class="btn-secondary">リストを保存</button>
+        <button id="start-quiz-btn" class="btn-success">この内容でクイズを開始</button>
+    </div>
+</div>
+
+<div id="quiz-screen" class="container hidden">
+    <h2 id="quiz-title"></h2>
+    <div id="quiz-area">
+        <ul id="question-list"></ul>
+    </div>
+    <div class="navigation-buttons">
+        <button id="back-to-list-btn-2">リストに戻る</button>
+        <button id="prev-question-btn">前の問題へ</button>
+        <button id="next-question-btn">次の問題へ</button>
+    </div>
+</div>
+
+<div id="checked-list-screen" class="container hidden">
+    <h2 id="checked-list-title">チェックした問題</h2>
+    <ul id="checked-list-ul"></ul>
+    <button id="back-to-list-btn-3">リストに戻る</button>
+</div>
+
+<script>
+    // --- グローバル変数 ---
+    const screens = {
+        list: document.getElementById('list-screen'),
+        editor: document.getElementById('editor-screen'),
+        quiz: document.getElementById('quiz-screen'),
+        checked: document.getElementById('checked-list-screen'),
+    };
+    let currentSetId = null;
+    let quizSentences = [];
+    let currentQuestionIndex = 0;
+    let currentMaskingRate = 0.6;
+    let currentRegex = null;
+    const QUESTIONS_PER_PAGE = 3;
+
+    // --- データ管理 (localStorage) ---
+    const STORAGE_KEY_META = 'quiz_sets_meta_v6'; 
+    const getSetDataKey = (setId) => `quiz_set_${setId}`;
+    const getCheckedDataKey = (setId) => `checked_sentences_${setId}`;
+
+    function getMeta() { return JSON.parse(localStorage.getItem(STORAGE_KEY_META)) || {}; }
+    function saveMeta(meta) { localStorage.setItem(STORAGE_KEY_META, JSON.stringify(meta)); }
+    function getSetData(setId) { return JSON.parse(localStorage.getItem(getSetDataKey(setId))) || []; }
+    function saveSetData(setId, data) { localStorage.setItem(getSetDataKey(setId), JSON.stringify(data)); }
+    function getCheckedSentences(setId) { return new Set(JSON.parse(localStorage.getItem(getCheckedDataKey(setId))) || []); }
+    function saveCheckedSentences(setId, checkedSet) { localStorage.setItem(getCheckedDataKey(setId), JSON.stringify(Array.from(checkedSet))); }
+    function deleteSet(setId) {
+        localStorage.removeItem(getSetDataKey(setId));
+        localStorage.removeItem(getCheckedDataKey(setId));
+        const meta = getMeta();
+        delete meta[setId];
+        saveMeta(meta);
+    }
+
+    // --- UIフィードバック ---
+    const editorFeedback = document.getElementById('editor-feedback');
+    let feedbackTimeout;
+    function showFeedback(message, duration = 2500) {
+        clearTimeout(feedbackTimeout);
+        editorFeedback.textContent = message;
+        editorFeedback.style.opacity = 1;
+        feedbackTimeout = setTimeout(() => {
+            editorFeedback.style.opacity = 0;
+        }, duration);
+    }
+
+    // --- 画面切り替え ---
+    function showScreen(screenName) {
+        Object.values(screens).forEach(screen => screen.classList.add('hidden'));
+        screens[screenName].classList.remove('hidden');
+    }
+    
+    // --- 画面1: 問題リストのロジック ---
+    const setListElement = document.getElementById('set-list');
+    const newSetBtn = document.getElementById('new-set-btn');
+
+    function renderSetList() {
+        const meta = getMeta();
+        setListElement.innerHTML = '';
+        if (Object.keys(meta).length === 0) {
+            setListElement.innerHTML = '<li>まだクイズが作成されていません。</li>';
+            return;
+        }
+        for (const [id, name] of Object.entries(meta)) {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span class="set-name">${name}</span>
+                <div class="button-group">
+                    <button class="view-checked-btn btn-secondary" data-id="${id}">チェック済み</button>
+                    <button class="edit-btn" data-id="${id}">編集/開始</button>
+                    <button class="delete-btn btn-danger" data-id="${id}">削除</button>
+                </div>`;
+            setListElement.appendChild(li);
+        }
+    }
+
+    newSetBtn.addEventListener('click', () => {
+        const name = prompt('新しいクイズセットの名前を入力してください:');
+        if (name && name.trim()) {
+            const newId = `set_${Date.now()}`;
+            const meta = getMeta();
+            meta[newId] = name.trim();
+            saveMeta(meta);
+            saveSetData(newId, []);
+            currentSetId = newId;
+            renderEditor();
+            showScreen('editor');
+            showFeedback(`『${name.trim()}』が作成され、リストに保存されました。`);
+        }
+    });
+    
+    setListElement.addEventListener('click', (e) => {
+        const target = e.target;
+        const id = target.dataset.id;
+        if (target.classList.contains('edit-btn')) {
+            currentSetId = id;
+            renderEditor();
+            showScreen('editor');
+        } else if (target.classList.contains('delete-btn')) {
+            if (confirm('このクイズセットを本当に削除しますか？')) {
+                deleteSet(id);
+                renderSetList();
+            }
+        } else if (target.classList.contains('view-checked-btn')) {
+            currentSetId = id;
+            renderCheckedList();
+            showScreen('checked');
+        }
+    });
+
+    // --- 画面2: 編集画面のロジック ---
+    const editorTitle = document.getElementById('editor-title');
+    const editorTextarea = document.getElementById('editor-textarea');
+    const maskingRateInput = document.getElementById('masking-rate-input');
+    const saveListBtn = document.getElementById('save-list-btn');
+    const startQuizBtn = document.getElementById('start-quiz-btn');
+
+    function renderEditor() {
+        const meta = getMeta();
+        const setName = meta[currentSetId] || "新しいクイズ";
+        editorTitle.textContent = `『${setName}』を編集`;
+        const setData = getSetData(currentSetId);
+        editorTextarea.value = setData.join('\n');
+    }
+
+    function saveCurrentSentences() {
+        const sentences = editorTextarea.value.split('\n').filter(line => line.trim().length > 0);
+        saveSetData(currentSetId, sentences);
+    }
+    
+    saveListBtn.addEventListener('click', () => {
+        saveCurrentSentences();
+        showFeedback('リストの内容を保存しました。');
+    });
+
+    startQuizBtn.addEventListener('click', () => {
+        saveCurrentSentences();
+
+        const sentences = getSetData(currentSetId);
+        if (sentences.length === 0) {
+            alert('クイズにする文章を1つ以上入力してください。');
+            return;
+        }
+
+        const rateValue = parseInt(maskingRateInput.value, 10);
+        if (isNaN(rateValue) || rateValue < 0 || rateValue > 100) {
+            alert('マスキング率は0から100の間の数値を入力してください。');
+            return;
+        }
+        currentMaskingRate = rateValue / 100;
+
+        const regexParts = {
+            kanji: '\\u4E00-\\u9FFF', katakana: '\\u30A0-\\u30FF',
+            alphabet: 'a-zA-Z', number: '0-9'
+        };
+        let patternString = '';
+        const checkedBoxes = document.querySelectorAll('.mask-target:checked');
+        if (checkedBoxes.length === 0) {
+            alert('マスキング対象を1つ以上選択してください。');
+            return;
+        }
+        checkedBoxes.forEach(box => { patternString += regexParts[box.value]; });
+        currentRegex = new RegExp(`[${patternString}]+`, 'g');
+
+        quizSentences = [...sentences];
+        shuffleArray(quizSentences);
+        currentQuestionIndex = 0;
+        renderQuiz();
+        showScreen('quiz');
+    });
+
+    // --- 画面3: クイズ画面のロジック ---
+    const quizTitle = document.getElementById('quiz-title');
+    const questionListElement = document.getElementById('question-list');
+    const prevQuestionBtn = document.getElementById('prev-question-btn');
+    const nextQuestionBtn = document.getElementById('next-question-btn');
+    
+    function renderQuiz() {
+        const meta = getMeta();
+        quizTitle.textContent = `クイズ: ${meta[currentSetId]}`;
+
+        // ★ボタンの状態を更新
+        prevQuestionBtn.disabled = (currentQuestionIndex === 0);
+
+        if (currentQuestionIndex >= quizSentences.length) {
+            questionListElement.innerHTML = '<li>🎉 全問終了しました！お疲れ様でした！</li>';
+            nextQuestionBtn.textContent = 'リストに戻る';
+            return;
+        }
+        
+        nextQuestionBtn.textContent = '次の問題へ';
+        
+        let sentencesToDisplay = quizSentences.slice(currentQuestionIndex, currentQuestionIndex + QUESTIONS_PER_PAGE);
+        if (sentencesToDisplay.length < QUESTIONS_PER_PAGE && quizSentences.length > 0) {
+            const needed = QUESTIONS_PER_PAGE - sentencesToDisplay.length;
+            let usedSentences = quizSentences.slice(0, currentQuestionIndex);
+            if(usedSentences.length === 0) { usedSentences = [...quizSentences]; }
+            shuffleArray(usedSentences);
+            for (let i = 0; i < needed; i++) {
+                sentencesToDisplay.push(usedSentences[i % usedSentences.length]);
+            }
+        }
+        
+        questionListElement.innerHTML = '';
+        const checkedSet = getCheckedSentences(currentSetId);
+        
+        sentencesToDisplay.forEach(sentence => {
+            const questionHTML = currentRegex ? sentence.replace(currentRegex, (match) => {
+                return (Math.random() < currentMaskingRate) ? `<span class="secret" data-answer="${match}">⬜︎⬜︎</span>` : match;
+            }) : sentence;
+
+            const li = document.createElement('li');
+            const isChecked = checkedSet.has(sentence);
+            li.innerHTML = `
+                <input type="checkbox" class="check-sentence-cb" data-sentence="${sentence}" ${isChecked ? 'checked' : ''}>
+                <span>${questionHTML}</span>
+            `;
+            questionListElement.appendChild(li);
+        });
+    }
+
+    questionListElement.addEventListener('click', (e) => {
+        if (e.target.classList.contains('secret')) {
+            const secretWord = e.target;
+            secretWord.classList.toggle('revealed');
+            secretWord.textContent = secretWord.classList.contains('revealed') ? secretWord.dataset.answer : '⬜︎⬜︎';
+        }
+    });
+    
+    questionListElement.addEventListener('change', (e) => {
+        if (e.target.classList.contains('check-sentence-cb')) {
+            const checkbox = e.target;
+            const sentence = checkbox.dataset.sentence;
+            const checkedSet = getCheckedSentences(currentSetId);
+            if (checkbox.checked) {
+                checkedSet.add(sentence);
+            } else {
+                checkedSet.delete(sentence);
+            }
+            saveCheckedSentences(currentSetId, checkedSet);
+        }
+    });
+    
+    // ★「前の問題へ」ボタンのイベントリスナー
+    prevQuestionBtn.addEventListener('click', () => {
+        currentQuestionIndex = Math.max(0, currentQuestionIndex - QUESTIONS_PER_PAGE);
+        renderQuiz();
+    });
+
+    nextQuestionBtn.addEventListener('click', () => {
+        if (currentQuestionIndex >= quizSentences.length) {
+            showScreen('list');
+        } else {
+            currentQuestionIndex += QUESTIONS_PER_PAGE;
+            renderQuiz();
+        }
+    });
+
+    // --- 画面4: チェック済み問題画面のロジック ---
+    const checkedListTitle = document.getElementById('checked-list-title');
+    const checkedListUl = document.getElementById('checked-list-ul');
+
+    function renderCheckedList() {
+        const meta = getMeta();
+        checkedListTitle.textContent = `『${meta[currentSetId]}』のチェック済み問題`;
+        const checkedSet = getCheckedSentences(currentSetId);
+        checkedListUl.innerHTML = '';
+        if (checkedSet.size === 0) {
+            checkedListUl.innerHTML = '<li>チェック済みの問題はありません。</li>';
+            return;
+        }
+        checkedSet.forEach(sentence => {
+            const li = document.createElement('li');
+            li.textContent = sentence;
+            checkedListUl.appendChild(li);
+        });
+    }
+    
+    // --- 共通の「戻る」ボタン ---
+    document.getElementById('back-to-list-btn-1').addEventListener('click', () => showScreen('list'));
+    document.getElementById('back-to-list-btn-2').addEventListener('click', () => showScreen('list'));
+    document.getElementById('back-to-list-btn-3').addEventListener('click', () => showScreen('list'));
+    
+    // --- ユーティリティ ---
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    // --- 初期化処理 ---
+    function initialize() {
+        renderSetList();
+        showScreen('list');
+    }
+    
+    initialize();
+
+</script>
+
+</body>
+</html>
